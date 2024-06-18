@@ -1,3 +1,5 @@
+// inclusion des fichiers header des bibliothèques
+
 #include <WiFi.h>             // Com WiFi
 #include <PubSubClient.h>     // MQTT
 #include <DFRobot_DHT20.h>    // DHT20
@@ -5,6 +7,7 @@
 #include <OneWire.h>          // Sonde DS18B20
 #include <DallasTemperature.h>
 
+/// @brief définition des Pins utilisés 
 const int outputPinL = 6;     // GPIO  pour la sortie lumière
 const int inputPinL = 7;      // GPIO relais retour lumière
 const int PinRad = 5;        // GPIO pour commande chauffage
@@ -16,6 +19,7 @@ const int SDA_DHT20 = 18;     // GPIO pour le DHT20 (I²C)
 const int SCL_DHT20 = 19;
 const int PinPres = 8;        // GPIO pour le capteur à ultrason
 
+/// @brief définition des constantes de temps
 unsigned long previousMillis1 = 0;  // Variable pour stocker le temps du dernier envoi
 const long interval_bit_vie = 1000; // Envoi bit de vie tous les 1 s
 unsigned long previousMillis2 = 0;
@@ -28,17 +32,31 @@ unsigned long previousMillis6 = 0;
 const long interval_pres = 1000;    // Envoi presence ultrasons tous les 1s
 unsigned long previousMillis7 = 0;
 const long interval_tempce = 1000;  // Envoi temperature chauffe-eau tous les 1s
-int counter = 0;                    // Bit de vie
+
+///instanciation des objets capteurs et réseau
 
 DFRobot_DHT20 dht20;                // Déclaration de l'objet DHT20
 OneWire oneWire (PinTempCe);        // Déclaration de l'objet DS18B20
 DallasTemperature masonde (&oneWire);
 Ultrasonic ultrasonic(PinPres);     // Déclaration de l'objet ultrason
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
+
+/// Logs réseau wifi
 
 const char* ssid = "SAE_DomoIQ";
 const char* wifi_password = "Valerieestlaplusbelle59";
 const char* mqtt_server = "192.168.200.114";
 const int mqtt_port = 1883;
+
+/// Logs du serveur MQTT
+
+const char* mqtt_username = "Valerie";
+const char* mqtt_password = "Damidomotique";
+const char* clientID = "ESP-SDB";
+
+/// Définiton des topics utilisés
+
 const char* vie_topic = "home/Sdb/bit";
 const char* lux_topic = "home/Sdb/lux";
 const char* lum_topic = "home/Sdb/lum";
@@ -51,12 +69,11 @@ const char* ce_topic = "home/Sdb/ce";
 const char* tempce_topic = "home/Sdb/tempce";
 const char* vmc_topic = "home/Sdb/vmc";
 
-const char* mqtt_username = "Valerie";
-const char* mqtt_password = "Damidomotique";
-const char* clientID = "ESP-SDB";
-WiFiClient wifiClient;
-PubSubClient client(wifiClient);
+/// @brief  définiton des variables globales
+int counter = 0;                    // Bit de vie
 
+
+/// @brief  connexion au wifi
 void connectWiFi() {
   Serial.println("Connexion au WIFI...");
   WiFi.begin(ssid, wifi_password);
@@ -67,6 +84,7 @@ void connectWiFi() {
   Serial.println("Connecté au WIFI !");
 }
 
+/// @brief connexion au serveur MQTT
 void connectMQTT() {
   while (!client.connected()) {
     Serial.println("Connexion au MQTT...");
@@ -86,6 +104,8 @@ void connectMQTT() {
   }
 }
 
+/// @brief envoi bit de vie
+
 void sendVie() {
   unsigned long currentMillis1 = millis();  // Obtient le temps actuel
   // Vérifie si l'intervale de temps est écoulé
@@ -98,6 +118,8 @@ void sendVie() {
     previousMillis1 = currentMillis1;
   }
 }
+/// @brief lecture et envoi luminosité 
+
 void sendLux(){
   unsigned long currentMillis5 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -115,6 +137,8 @@ void sendLux(){
     previousMillis5 = currentMillis5;
   }
 }
+/// @brief lecture et envoi humidité
+
 void sendHum(){
   unsigned long currentMillis2 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -127,6 +151,7 @@ void sendHum(){
 
   }
 }
+/// @brief lecture et envoi température
 void sendTemp(){
   unsigned long currentMillis3 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -139,6 +164,7 @@ void sendTemp(){
 
   }
 }
+/// @brief lecture et envoi de la présence
 void sendPresence(){
   unsigned long currentMillis6 = millis();
   int seuil = 30; // distance avant déclenchement (en cm)
@@ -157,6 +183,42 @@ void sendPresence(){
 	  previousMillis6 = currentMillis6;
 	}
 }
+///fonction théorique,  fonctionnelle lors des essais isolés:
+// void sendPresence() {
+//   unsigned long currentMillis6 = millis();
+//     extern int  presenceHistory[10]; // initialisation du tableau en global avec extern
+//     bool presence; //état de la présence
+//     int sum=0;
+//     float Avg=0; // initialisation de la somme et de la moyenne
+//     int threshold=30; // seuil de 30 cm;
+//   // Cette fonction ne détecte que si la distance dépasse un seuil
+//   // pour avoir une vraie détection de présence, 
+//   if (currentMillis6 - previousMillis6 >= interval_pres) {
+
+//     int distance = ultrasonic.read(); // lecture de la distance mesurée avec l'ultrason
+//     sum=presenceHistory[0]; // presenceHistory[0] est réécrit par la suite, on le stocke donc maintenant
+
+//     for (int i;i<9;i++) //boucle for pour décaler d'une place les distances mesurées précédentes 
+//     {
+//         sum+=presenceHistory[9-i];// addition de toutes les valeurs à sum
+//         presenceHistory[9-i]=presenceHistory[9-i-1]; //décalage
+//     }
+//     Avg=sum/10.0; // moyenne calculée en float
+//     if ((Avg-distance>=threshold)||(Avg-distance<=threshold))// si seuil dépassé, présence détectée
+//     {
+//         presence=1;
+//     }
+//     else
+//     {
+//         presence=0;
+//     }
+//     presenceHistory[0]=distance;
+//     client.publish(presence_topic, String(presence).c_str());
+//     previousMillis6 = currentMillis6;
+//   }
+// }
+
+/// @brief lecture et envoi de la température du chauffe-eau pour régulation
 void sendTempCe(){
   unsigned long currentMillis7 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -173,6 +235,8 @@ void sendTempCe(){
 
   }
 }
+
+/// @brief lecture et envoi état de la lampe 
 void sendRetourLum(){
   bool etat = digitalRead(inputPinL);
   //Serial.println("Pin retour lumière: ");
@@ -181,18 +245,19 @@ void sendRetourLum(){
   delay(500); // Petit delai permettant de maintenir la valeur, sinon on ne voit pas le changement au niveau MQTT
 }
 
+/// @brief boucle initialisation, appelée en première
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200); //liason série initialisée à 115200 bauds/s
   
   ledcSetup(1, 5000, 8); // Configuration du signal PWM: Voie 1, freq = 1kHz, 8 bit de résolution
-  ledcAttachPin(PinCe, 1); // Autoriser le PWM sur la broche en utilisant la voie 1
+  ledcAttachPin(PinCe, 0); // Autoriser le PWM sur la broche en utilisant la voie 1
   ledcSetup(2, 5000, 8); // Configuration du signal PWM: Voie 2, freq = 5kHz, 8 bit de résolution
-  ledcAttachPin(PinVmc, 2); // Autoriser le PWM sur la broche en utilisant la voie 2
+  ledcAttachPin(PinVmc, 1); // Autoriser le PWM sur la broche en utilisant la voie 2
 
   pinMode(outputPinL, OUTPUT); // Sortie vers télérupteur
   pinMode(inputPinL, INPUT_PULLUP); // Entrée retour de la commande telerupteur
   pinMode(TEMT6000_PIN, INPUT); // Entrée du cpt luminosité
-  pinMode(PinCe, OUTPUT); // Sortie vers chauffe-eau
+  //pinMode(PinCe, OUTPUT); // Sortie vers chauffe-eau NE PAS METTRE SORTIE OU INPUT EN PWM
   pinMode(PinRad, OUTPUT); // Sortie radaiteur
   Wire.begin(SDA_DHT20, SCL_DHT20); // SDA puis SCL pour DHT20
   dht20.begin();  // Initialisation du capteur DHT20
@@ -233,7 +298,7 @@ void setup() {
 
       // Vérifiez que le rapport cyclique est dans la plage acceptable pour le PWM
       if (rapport_cyclique >= 0 && rapport_cyclique <= 255) {
-          ledcWrite(1, rapport_cyclique);  // Appliquez le rapport cyclique
+          ledcWrite(0, rapport_cyclique);  // Appliquez le rapport cyclique
       }
     }
     else if (strcmp(topic, vmc_topic) == 0) {  // Contrôler la VMC
@@ -247,12 +312,13 @@ void setup() {
 
       // Vérifiez que le rapport cyclique est dans la plage acceptable pour le PWM
       if (rapport_cyclique >= 0 && rapport_cyclique <= 255) {
-          ledcWrite(2, rapport_cyclique);  // Appliquez le rapport cyclique
+          ledcWrite(1, rapport_cyclique);  // Appliquez le rapport cyclique
       }
     }
   });
 }
 
+/// @brief boucle principale
 void loop() {
   if (!client.connected()) {    // Si on n'arrive pas à se connecter au MQTT, on réessaye
     connectMQTT();
@@ -267,5 +333,3 @@ void loop() {
   sendRetourLum();    // Envoi de l'état de la commande télérupteur
   delay(5);           // Attendre 5 ms (évite de saturer le CPU)
 }
-
-
