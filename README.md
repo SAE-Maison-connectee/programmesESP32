@@ -6,6 +6,8 @@ This project has as main purpose to introduce students to IoT implementation in 
 You will find in this repo all the files created to make this project work.
 
 Please note that you will need to install manually the wifi library for ESP32 in the case you are using the Arduino IDE, but not for Platform.io, where it is already included.
+wifi library:
+https://github.com/espressif/arduino-esp32/tree/76b6ff6500775339b8b6dbf52eb3b484b11a0a78/libraries/WiFi/src
 
 FRANCAIS:
 
@@ -15,3 +17,5 @@ L'intérêt principal de ce projet est d'initier les étudiant à l'implantation
 Vous trouverez dans ce répertoire tous les fichiers créés pour que ce projet fonctionne.
 
 A noter qu'il faut installer la bibliothèque wifi pour ESP32 si vous utilisez Arduino IDE, mais pas si vous utilisez Platform.io, puisque il est déjà inclus.
+bibliothèque wifi:
+https://github.com/espressif/arduino-esp32/tree/76b6ff6500775339b8b6dbf52eb3b484b11a0a78/libraries/WiFi/src
