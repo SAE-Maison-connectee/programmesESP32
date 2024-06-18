@@ -1,18 +1,21 @@
+///inclusion des headers des bibliothèques
+
 #include <WiFi.h>            // Com WiFi
 #include <PubSubClient.h>    // MQTT
 #include <DFRobot_DHT20.h>  // DHT20
 #include "PCF8574.h"        // Extension de GPIO via I²C pour contrôler volets
 #include <Wire.h>           // Gestion de l'I²C
 
+/////////////////Défintion des pins utilisés ////////////////////////////////////
 
 const int inputPinD = 0;    // GPIO 0 du PCF pour retour commande de descente volet 1
 const int outputPinD = 1;   // GPIO 1 du PCF pour commande de descente volet 1
 const int inputPinM = 2;    // GPIO 2 du PCF pour retour commande de montée volet 1
 const int outputPinM = 3;   // GPIO 3 du PCF pour commande de montée volet 1
-const int inputPinD2 = 4;   // GPIO 4 du PCF pour retour commande de descente volet 2
-const int outputPinD2 = 5;  // GPIO 5 du PCF pour commande de descente volet 2
-const int inputPinM2 = 6;   // GPIO 6 du PCF pour retour commande de montée volet 2
-const int outputPinM2 = 7;  // GPIO 7 du PCF pour commande de montée volet 2
+const int inputPinM2 = 4;   // GPIO 4 du PCF pour retour commande de descente volet 2
+const int outputPinM2 = 5;  // GPIO 5 du PCF pour commande de descente volet 2
+const int inputPinD2 = 6;   // GPIO 6 du PCF pour retour commande de montée volet 2
+const int outputPinD2 = 7;  // GPIO 7 du PCF pour commande de montée volet 2
 
 const int outputPinL = 6;    // GPIO pour la sortie lumière
 const int inputPinL = 7;     // GPIO relais retour lumière
@@ -21,6 +24,8 @@ const int TEMT6000_PIN = 4;  // Entrée GPIO pour capteur luminosité
 const int SDA_DHT20 = 18;    // GPIO pour l'I²C
 const int SCL_DHT20 = 19;
 
+//////////////Définiton des constantes de temps //////////////////////////////
+
 unsigned long previousMillis1 = 0;  // Variable pour stocker le temps du dernier envoi
 const long interval_bit_vie = 1000; // Bit de vie tous les 1s
 unsigned long previousMillis2 = 0;
@@ -28,26 +33,41 @@ const long interval_hum = 2000;     // Envoi humidité tous les 2s
 unsigned long previousMillis3 = 0;
 const long interval_temp = 2000;    // Envoi température tous les 2s
 unsigned long previousMillis4 = 0;
-const long interval_volet = 500;    // Rafraichissement volet tous les 100ms    
+const long interval_volet = 500;    // Rafraichissement volet tous les 500ms    
 unsigned long previousMillis5 = 0;
 const long interval_lux = 1000;    // Envoi luminosite ambiante tous les 1s
 unsigned long previousMillis6 = 0;
 const long interval_volet2 = 500;  // Rafraichissement volet tous les 500ms
 unsigned long previousMillis7 = 0;
 const long intervalLum = 300; // Intervalle pour changer l'état de la lumière
+
+///////////// iniitalisation des Variables globales ////////////////////
+
 int counter = 0;                  // Bit de vie
 int pos = 0;                      // Position du volet 1
 int pos2 = 0;                     // Position du volet 2
 bool changer_etat_lum = false;
 
-
+/////////// instanciation des objets capteurs et réseau //////////////////// 
 DFRobot_DHT20 dht20;                              // Déclaration de l'objet DHT20 (addresse 0x38)
-PCF8574 pcf8574(0x20, SDA_DHT20, SCL_DHT20);      // Adresse I2C du PCF8574 (addresse 0x20)
+PCF8574 pcf8574(0x20, SDA_DHT20, SCL_DHT20);  // Adresse I2C du PCF8574 (addresse 0x20)
+WiFiClient wifiClient;
+PubSubClient client(wifiClient); 
 
+///////// logs Réseau Wifi ///////////////////
 const char* ssid = "SAE_DomoIQ";
 const char* wifi_password = "Valerieestlaplusbelle59";
 const char* mqtt_server = "192.168.200.114";
 const int mqtt_port = 1883;
+
+//////////logs serveur MQTT //////////////////
+
+const char* mqtt_username = "Valerie";
+const char* mqtt_password = "Damidomotique";
+const char* clientID = "ESP-SAM";
+
+////// définiton des topics MQTT ////////////////
+
 const char* volet_topic = "home/Sam/volet";
 const char* volet_topic2 = "home/Sam/volet2";
 const char* vie_topic = "home/Sam/bit";
@@ -63,11 +83,8 @@ const char* temp_topic = "home/Sam/temp";
 const char* rad_topic = "home/Sam/rad";
 
 
-const char* mqtt_username = "Valerie";
-const char* mqtt_password = "Damidomotique";
-const char* clientID = "ESP-SAM";
-WiFiClient wifiClient;
-PubSubClient client(wifiClient);
+
+/// Fonction de connexion au wifi
 
 void connectWiFi() {
   Serial.println("Connexion au WIFI...");
@@ -78,6 +95,8 @@ void connectWiFi() {
   }
   Serial.println("Connecté au WIFI !");
 }
+
+/// Fonction de connexion au serveur MQTT
 
 void connectMQTT() {
   while (!client.connected()) {
@@ -96,7 +115,7 @@ void connectMQTT() {
     }
   }
 }
-
+/// @brief lecture et envoi de l'état du volet 1
 void sendEtatVolet() {
   // Envoyer l'état des volets en réponse
   if (pcf8574.digitalRead(inputPinM) == HIGH && pcf8574.digitalRead(inputPinD) == LOW) {
@@ -107,6 +126,7 @@ void sendEtatVolet() {
   } 
   delay(10);
 }
+/// @brief lecture et envoi de l'état du volet 2
 void sendEtatVolet2() {
   // Envoyer l'état des volets en réponse
   if (pcf8574.digitalRead(inputPinM) == HIGH && pcf8574.digitalRead(inputPinD) == LOW) {
@@ -117,7 +137,7 @@ void sendEtatVolet2() {
   } 
   delay(10);
 }
-
+/// Envoi bit de vie
 void sendVie() {
   unsigned long currentMillis1 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -130,6 +150,8 @@ void sendVie() {
     previousMillis1 = currentMillis1;
   }
 }
+/// @brief lecture et envoi luminosité
+
 void sendLux(){
   unsigned long currentMillis5 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -147,12 +169,16 @@ void sendLux(){
     previousMillis5 = currentMillis5;
   }
 }
+/// @brief envoi état de la lampe
+
 void sendRetourLum(){
   bool etat = digitalRead(inputPinL);
   //Serial.println("Pin retour lumière: ");
   //Serial.println(etat);
   client.publish(retour_lum_topic, String(etat).c_str());
 }
+
+/// @brief changer état de la lumière
 void basculerLum() {
   if (changer_etat_lum) {
     unsigned long currentMillis = millis();
@@ -162,6 +188,7 @@ void basculerLum() {
     }
   }
 }
+/// @brief lecture et envoi humidité 
 void sendHum(){
   unsigned long currentMillis2 = millis();  // Obtient le temps actuel
   // Vérifie si l'intervale de temps est écoulé
@@ -173,6 +200,7 @@ void sendHum(){
 	previousMillis2 = currentMillis2;
   }
 }
+/// @brief lecture et envoi température
 void sendTemp(){
   unsigned long currentMillis3 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -184,6 +212,8 @@ void sendTemp(){
      previousMillis3 = currentMillis3;
   }
 } 
+/// @brief Retour de l'état du volet 1
+
 void sendPosVolet(){
   unsigned long currentMillis4 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -196,6 +226,8 @@ void sendPosVolet(){
     previousMillis4 = currentMillis4;
   }
 }
+/// @brief Retour de l'état du volet 1
+
 void sendPosVolet2(){
   unsigned long currentMillis6 = millis();  // Obtient le temps actuel
   // Vérifie si l'interval_bit_viele de temps est écoulé
@@ -208,7 +240,7 @@ void sendPosVolet2(){
     previousMillis6 = currentMillis6;
   }
 }
-
+/// @brief fonction de paramétrage, exécutée en première
 void setup() {
   Serial.begin(115200);
   pcf8574.pinMode(inputPinD, INPUT);
@@ -229,40 +261,41 @@ void setup() {
 
   connectWiFi();
   client.setServer(mqtt_server, mqtt_port);
-  client.setCallback([](char* topic, byte* payload, unsigned int length) {
+  client.setCallback([](char* topic, byte* payload, unsigned int length) {// Lecture des topics MQTT avec la fonction de callback
     Serial.print("Message reçu: ");
     Serial.println(topic);
-    if (strcmp(topic, volet_topic) == 0) {
+
+    if (strcmp(topic, volet_topic) == 0) { // identification du topic
       if (payload[0] == '1') {
-        pcf8574.digitalWrite(outputPinM, HIGH);
-        pcf8574.digitalWrite(outputPinD, LOW);
-        Serial.println("En cours de montée");
+        pcf8574.digitalWrite(outputPinM, LOW);//
+        pcf8574.digitalWrite(outputPinD, HIGH);//
+        Serial.println("En cours de montée");//
       } else if (payload[0] == '0') {
-        pcf8574.digitalWrite(outputPinM, LOW);
-        pcf8574.digitalWrite(outputPinD, LOW);
-        Serial.println("Volets stoppés");
+        pcf8574.digitalWrite(outputPinM, HIGH); // actions effectuées selon la valeur lue dans le topic
+        pcf8574.digitalWrite(outputPinD, HIGH);//
+        Serial.println("Volets stoppés");//
       } else if (payload[0] == '2') {
-        pcf8574.digitalWrite(outputPinM, LOW);
-        pcf8574.digitalWrite(outputPinD, HIGH);
+        pcf8574.digitalWrite(outputPinM, HIGH);//
+        pcf8574.digitalWrite(outputPinD, LOW);//
         Serial.println("En cours de descente");
       }
     }
-    else if (strcmp(topic, volet_topic2) == 0) {
+    else if (strcmp(topic, volet_topic2) == 0) {// identification du topic
       if (payload[0] == '1') {
-        pcf8574.digitalWrite(outputPinM2, HIGH);
-        pcf8574.digitalWrite(outputPinD2, LOW);
+        pcf8574.digitalWrite(outputPinM2, LOW);//
+        pcf8574.digitalWrite(outputPinD2, HIGH);//
         Serial.println("En cours de montée");
       } else if (payload[0] == '0') {
-        pcf8574.digitalWrite(outputPinM2, LOW);
-        pcf8574.digitalWrite(outputPinD2, LOW);
+        pcf8574.digitalWrite(outputPinM2, HIGH);// actions effectuées selon la valeur lue dans le topic
+        pcf8574.digitalWrite(outputPinD2, HIGH);//
         Serial.println("Volets stoppés");
       } else if (payload[0] == '2') {
-        pcf8574.digitalWrite(outputPinM2, LOW);
-        pcf8574.digitalWrite(outputPinD2, HIGH);
+        pcf8574.digitalWrite(outputPinM2, HIGH);//
+        pcf8574.digitalWrite(outputPinD2, LOW);//
         Serial.println("En cours de descente");
       }
     }  
-    else if (strcmp(topic, lum_topic) == 0) {
+    else if (strcmp(topic, lum_topic) == 0) {// identification du topic
       if (payload[0] == '1' || payload[0] == '0') {
         changer_etat_lum = true; // Indiquer qu'il faut changer l'état de la lumière
         previousMillis7 = millis(); // Enregistrer le temps actuel
@@ -270,12 +303,12 @@ void setup() {
         Serial.println("Changer état de la lumière");
       }
     }
-    else if (strcmp(topic, rad_topic) == 0) {
+    else if (strcmp(topic, rad_topic) == 0) {// identification du topic
       if (payload[0] == '0') {
         Serial.println("Eteindre radiateur");
         digitalWrite(PinRad, LOW);
       }
-      else if (payload[0] == '1'){
+      else if (payload[0] == '1'){// identification du topic
         Serial.println("Allumer radiateur");
         digitalWrite(PinRad, HIGH);
       }
@@ -300,5 +333,3 @@ void loop() {
   sendTemp();         // Envoi de la température ambiante
   delay(5);           // Attendre 5 ms (Evite de saturer le CPU)
 }
-
-
